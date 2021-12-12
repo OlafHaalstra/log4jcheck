@@ -1,0 +1,3 @@
+﻿description,URL,method,parameters
+test,http://localhost:8080/test,POST,"test"
+test,http://localhost:8080/test,GET,"test"
