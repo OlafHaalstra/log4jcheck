@@ -91,9 +91,14 @@ def perform_request(method: str, identifier: str, url: str, url_id: str, paramet
     except requests.exceptions.ConnectionError as e:
         logging.warning(f"{identifier} : {url_id} : {url} - {e}")
 
-def scan(row_queue: Queue, hostname: str, wait: int, timeout: int, prefix_option: int):
+def scan(row_queue: Queue, done_queue: Queue, hostname: str, wait: int, timeout: int, prefix_option: int):
     while not row_queue.empty():
         row = row_queue.get()
+        if row in done_queue.queue:
+            logging.info(f"Already done: {row[0]} : {row[1]} - {row[2]}")
+            row_queue.task_done()
+            continue
+        done_queue.put(row)
         try:
             url_id = row[0]
             url = row[1]
@@ -126,9 +131,21 @@ def main():
     parser.add_argument("-t", "--timeout", type=int, default=5, help="HTTP timeout in seconds to use (default: 5)")
     parser.add_argument("-p", "--prefix", type=int, default=0, help="Type of prefix, see prefixes_injects for options. (default: 0, options 0-3)")
     parser.add_argument("-q", "--threads", type=int, default=1, help="Number of threads to distribute the work")
+    parser.add_argument("-d", "--done", help="File where we can keep track of items that are done.")
     args = parser.parse_args()
 
     row_queue = queue.Queue()
+
+    done_queue = queue.Queue()
+
+    if args.done is not None:
+        try:
+            with open(args.done) as csvfile:
+                rowreader = csv.reader(csvfile)
+                for row in rowreader:
+                    done_queue.put(row)
+        except FileNotFoundError:
+            pass
 
     with open(args.file) as csvfile:
         urlreader = csv.reader(csvfile)
@@ -139,10 +156,17 @@ def main():
     logging.info(f"Starting {args.threads} threads to scan URLs.")
 
     for i in range(args.threads):
-        t = threading.Thread(target=scan, name=f"Thread {i}", args=(row_queue, args.url, args.wait, args.timeout, args.prefix))
+        t = threading.Thread(target=scan, name=f"Thread {i}", args=(row_queue, done_queue, args.url, args.wait, args.timeout, args.prefix))
         t.start()
     
     row_queue.join()
+
+    if args.done is not None:
+        with open(args.done, 'w', newline='') as csvfile:
+            rowwriter = csv.writer(csvfile)
+            while not done_queue.empty():
+                rowwriter.writerow(done_queue.get())
+
 
 if __name__ == "__main__":
     main()
