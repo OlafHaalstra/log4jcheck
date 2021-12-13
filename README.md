@@ -30,20 +30,14 @@ To set-up without any prior configurations you can use [https://canarytokens.org
 
 ![Canary Tokens](images/2021-12-12-19-01-55.png)
 
-Make sure to replace `CANARY_TOKEN` with the part in the generated url between `L4J` and `canarytokens.com`, e.g.: `ujz5sgvgo7xuvn03ft9qrws5w`.
-
 Alternatively, you can [set-up your own DNS server](https://github.com/NorthwaveSecurity/log4jcheck).
 
 # Running the script
 Install dependencies by using `pip install-r requirements.txt`. Edit the script to change the following line to your preferred canary token:
 
-```
-CANARY_TOKEN = "mycanarytoken"
-```
-
 Now the script can be run, pointing the script to the prior created CSV with URLs to check.
 ```
-python3 log4jcheck.py urls.csv
+python3 .\log4jcheck.py --file .\urls-example.csv --threads 2 --url "L4J.ujz5sgvgo7xuvn03ft9qrws5w.canarytokens.com/a" -w 0 -t 1
 ```
 
 Check if the token has been triggered after the script has been completed. You will be able to cross correlate which application triggered based on the generated `UUID4` in combination with the injected parameter, e.g.: `40852c3b-2d6b-4bd5-a91f-4416aa730619-username`.
@@ -108,6 +102,30 @@ test,http://localhost:8080/test,GET,"test"
 
 The following information should appear in the canary token log:
 ![Log input](images/2021-12-12-19-38-56.png)
+
+
+## Coverage:
+
+The following HTTP headers are covered:
+
+* `X-Api-Version`
+* `User-Agent`
+* `Referer`
+* `X-Druid-Comment`
+* `Origin`
+* `Location`
+* `X-Forwarded-For`
+* `Cookie`
+* `X-Requested-With`
+* `X-Forwarded-Host`
+* `Accept`
+
+For each injection, the following JNDI prefixes are possible:
+
+* 0: `jndi:dns`
+* 1: `jndi:${lower:l}${lower:d}ap`
+* 2: `jndi:rmi`
+* 3: `jndi:ldap`
 
 
 ## DISCLAIMER
