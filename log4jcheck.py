@@ -39,7 +39,7 @@ prefixes_injects = [
 def get_payload(identifier, parameter, hostname, prefix_option: int):
     return f"${{{prefixes_injects[prefix_option]}://{identifier}-{parameter}.{hostname}}}"
 
-def perform_request(method: str, identifier: str, url: str, url_id: str, parameters: list[str], hostname: str, timeout: int, prefix_option: int):
+def perform_request(method: str, identifier: str, url: str, url_id: str, parameters: list, hostname: str, timeout: int, prefix_option: int):
     try:
         # Injects POST body parameters
         headers = {}
