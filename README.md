@@ -35,6 +35,23 @@ Alternatively, you can [set-up your own DNS server](https://github.com/Northwave
 # Running the script
 Install dependencies by using `pip install-r requirements.txt`. Edit the script to change the following line to your preferred canary token:
 
+```
+usage: log4jcheck.py [-h] -f FILE -u URL [-w WAIT] [-t TIMEOUT] [-p PREFIX] [-q THREADS] [-d DONE]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  The CSV filename containing the URLs
+  -u URL, --url URL     DNS subdomain URL on which th callback is performed
+  -w WAIT, --wait WAIT  Number of seconds to wait before next request (default: 1)
+  -t TIMEOUT, --timeout TIMEOUT
+                        HTTP timeout in seconds to use (default: 5)
+  -p PREFIX, --prefix PREFIX
+                        Type of prefix, see prefixes_injects for options. (default: 0, options 0-3)
+  -q THREADS, --threads THREADS
+                        Number of threads to distribute the work
+  -d DONE, --done DONE  File where we can keep track of items that are done
+```
+
 Now the script can be run, pointing the script to the prior created CSV with URLs to check.
 ```
 python3 .\log4jcheck.py --file .\urls-example.csv --threads 2 --url "L4J.ujz5sgvgo7xuvn03ft9qrws5w.canarytokens.com/a" -w 0 -t 1

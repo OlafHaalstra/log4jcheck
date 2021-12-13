@@ -125,13 +125,13 @@ def scan(row_queue: Queue, done_queue: Queue, hostname: str, wait: int, timeout:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--file", required=True, help="The CSV filename containing the URLs.")
-    parser.add_argument("-u", "--url", required=True, help="DNS subdomain URL")
+    parser.add_argument("-f", "--file", required=True, help="The CSV filename containing the URLs")
+    parser.add_argument("-u", "--url", required=True, help="DNS subdomain URL on which th callback is performed")
     parser.add_argument("-w", "--wait", type=int, default=1, help="Number of seconds to wait before next request (default: 1)")
     parser.add_argument("-t", "--timeout", type=int, default=5, help="HTTP timeout in seconds to use (default: 5)")
     parser.add_argument("-p", "--prefix", type=int, default=0, help="Type of prefix, see prefixes_injects for options. (default: 0, options 0-3)")
     parser.add_argument("-q", "--threads", type=int, default=1, help="Number of threads to distribute the work")
-    parser.add_argument("-d", "--done", help="File where we can keep track of items that are done.")
+    parser.add_argument("-d", "--done", help="File where we can keep track of items that are done")
     args = parser.parse_args()
 
     row_queue = queue.Queue()
