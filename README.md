@@ -11,7 +11,7 @@ The list of URLs to check should be in the following format (`csv`):
 description,URL,method,parameters
 production,example.com/login,POST,"username,password"
 staging,example.com/search,GET,"q"
-development,example.com/new,BOTH,"add"
+development,example.com/,GETNP,""
 ```
 
 This will subsequently run a `POST` request on `example.com/login` where the following raw body is posted: 
@@ -19,9 +19,11 @@ This will subsequently run a `POST` request on `example.com/login` where the fol
 
 Similarly, it will run the following `GET` request: `example.com/search?q={jndi:ldap...}`.
 
-Alternatively you can specify `BOTH` to first do the `POST` request and subsequently also `GET` the url with the payload appended: `example.com/new/{jndi:ldap...}`.
+Alternatively you can specify `GETNP` (`GET` `N`o `P`arameters) to do the `GET` the url with the payload appended: `example.com/new/{jndi:ldap...}`.
 
 Additionally the payload is also inserted in the `User-Agent`, `Referer`, `X-Forwarded-For`, `Authentication` headers to increase the chances for a hit.
+
+If you want to check URLs for both `GET`, `POST` or `GETNP`, please duplicate the entry in the CSV.
 
 ## Canary Token
 To set-up without any prior configurations you can use [https://canarytokens.org/generate](https://canarytokens.org/generate) and create a Log4Shell CanaryToken:

