@@ -1,6 +1,6 @@
 # Log4j CVE-2021-44228 checker
 
-Checks a list of URLs with `POST` and `GET` requests in combination with parameters.
+Multithreaded checks a list of URLs with `POST` and `GET` requests in combination with parameters. 
 
 Heavily inspired by [NortwaveSecurity version](https://github.com/NorthwaveSecurity/log4jcheck).
 
@@ -51,6 +51,8 @@ optional arguments:
                         Number of threads to distribute the work
   -d DONE, --done DONE  File where we can keep track of items that are done
 ```
+
+Generate the folder: `/run/logs` to output the logs to. Here you can track the progress, nothing will be send to `stdout`. 
 
 Now the script can be run, pointing the script to the prior created CSV with URLs to check.
 ```
